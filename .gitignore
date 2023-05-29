@@ -1,0 +1,28 @@
+## Python
+# Byte-compiled / optimized / DLL files
+#*/__pycache__/
+__pycache__/
+*.py[cod]
+*$py.class
+
+
+# IDEs/project files
+# VS Code
+.vs/
+.vscode/
+*/.vscode/
+# PyCharm
+.idea/
+
+
+# Flask stuff:
+instance/
+.webassets-cache
+
+# Aux
+CD
+CD/*
+00_misc
+00_misc/*
+01_doc
+01_doc/*

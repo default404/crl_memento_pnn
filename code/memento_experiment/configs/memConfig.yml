@@ -1,0 +1,321 @@
+# === paramerts that are automatically managed ===
+auto_managed:
+  # if the experiment is continued
+  continue: false
+  # the possible choices of the implemented algorithms
+  algo_choices:
+    - vanilla_ppo   #this has no continual learning
+    - pnn
+    - ewc
+    - progress_compress
+
+# === Algorithm Choice ===
+# The alogorithm to use for continual learning. Can be one of algo_choices.
+algorithm: pnn
+  
+# === Continual Parameters ===
+Continual_params:
+  # The tasks where the agent is continually trained on. This should be the 
+  # gym ID's or any name of a registered environment in Ray. 
+  task_list:
+    - 
+  # The specific parameters needed for the algorithms.
+  # All parameters here are passed to Ray's `custom_model_config` config key in
+  # the model config. 
+  algo_params:
+    # The vanilla PPO agent doesn't have any special parameters, the default
+    # Rllib configuration for a standart PPO agent will be used. 
+    vanilla_ppo: null
+    pnn:
+      # Flag for telling the PNN if it is in training or inference mode
+      # currently. This matters for loading checkpoints during training/
+      # inference.
+      in_training: True
+      # The checkpoint to init the PNN with.
+      checkpoint: ""
+      # Whether to retrain the last column of the PNN instead of adding a 
+      # new one after initializaion with the checkpoint. If True, the model
+      # will be loaded from the checkpoint and env spec and the last column
+      # will be un-frozen and retrained. Make sure that you retrain on the
+      # same env(-type) as the last column was trained on since the same
+      # input/output heads will be used for retraining.
+      retrain_last_col: False
+      # The PNN c'tor will create columns equal to the length of this list
+      # with input & output heads based on the info included. This is only 
+      # used if a checkpoint is given. It can the following:
+      #   None: The PNN will try to load a specific file from the 
+      #         checkpoint directory.
+      #   string: The path to an *.spec file (dumped automatically when 
+      #           model.export_checkpoint is called).
+      #   list: each element must be a dictionary with a valid gym.Space 
+      #         for the observation and action space.
+      build_columns: null
+      # Number of hidden layers for fully connected net.
+      fcnet_hiddens: []
+      # Nonlinearity for hidden FC layers (tanh, relu).
+      fcnet_activation: relu
+      # Filter config list of [out_channels, kernel, stride] for each filter.
+      # Note that this is strongly dependent of the preprocessing/wrapper
+      # behavior of the environment. E.g. for deepmind, the frames are resized
+      # already to 84x84x4 (4 stacked grey-scale observations).
+      conv_filters: [[16, [8, 8], 4], [32, [4, 4], 2], [256, [11, 11], 1]]
+      # Nonlinearity for hidden Conv layers (tanh, relu).
+      conv_activation: relu
+      # The init value for the alpha parameter in the residual connections of 
+      # the PNN. If None, a random choice in [1, 0.1, 0.01] is made for each 
+      # alpha in the network. Note that alpha is a weighting factor and cannot
+      # be smaller than 0.
+      alpha_value: 0.01
+    ewc:
+      some: param
+    progress_compress:
+      some: param
+  # === Continal Learning environment settings ===
+  # The config settings that will be passed directly to the environment.
+  # This field updates the Trainer_params.env_config settings below with
+  # all new or existing settings defined here.
+  env_config:
+    # Stopping criteria for each task. Any metric from the training result
+    # can be given here as long as it is numeric. If None, the criterion is 
+    # disabled.
+    stopping_criteria:
+      training_iteration: null
+      timesteps_total: null
+      episode_reward_mean: null
+    # Checkpoint frequency. This stores every x training iterations a
+    # checkpoint of the model. 0 means checkpoints will only be stored
+    # when the stopping criteria is reached.
+    checkpoint_frequency: 10
+    # Whether to normalize the observation space of the environment,
+    # together with the normalization parameters. 
+    # Independent of 'use_custom_env'. It is recommended to set 
+    # `use_custom_env=True` if using normalization since this wrapper
+    # is order-dependent and needs to be added LAST!
+    normalize_observations: False
+    # One of 'min_max', 'mean'
+    normalize_obs_mode: min_max
+    min_max_low: 0
+    min_max_high: 1
+    # Whether the env shall be used in a Memento Experiment. This enables 
+    # the env to be initialized at a specific state.
+    # Refer to https://arxiv.org/abs/2002.12499
+    use_memento_env: True
+    # Path to the state buffer dump the memento env will sample its 
+    # initialization states from. Independent of 'use_custom_env'.
+    # If not given the memento env is basically a NoOp wrapper.
+    memento_state_buffer_path: ""
+    # Register a custom environment with custom wrappers, etc. If True
+    # the 'env_style' setting can be used to specify general custom wrapping.
+    use_custom_env: False
+    # === Continual environment settings ===
+    # DEPRECATED: kept for backward compatibility
+    # If True or missing, a monitoring wrapper will be added to each task
+    # environment. This is needed for getting task metrics! Default is True.
+    add_monitor: True
+    # DEPRECATED: kept for backward compatibility
+    # Whether to instantly initialize (=load) the fist task in the task list
+    # when a continual learning environment object is created. This omits
+    # the need to call env/policy->next_task the first time. Note that Ray 
+    # maybe has issues if no actual env is accessable after creation. 
+    # Default is True. 
+    init_on_creation: True
+    # DEPRECATED: kept for backward compatibility
+    # Whether to automatically reset the new environment on task switch. 
+    # Setting this to True enables immediate sampling from the next task w/o
+    # the need of calling reset on the env on task switch.
+    reset_on_switch: True
+    # DEPRECATED: kept for backward compatibility
+    # Whether to allow to revisit tasks in the task list that were already 
+    # trained on. NOTE: this feature is not fully working and will be disabled
+    # in the config for now.
+    allow_revisit: False
+  # Configuration for each of the envs in the task list. If one is missing,
+  # or the config value is None, the default_wrapper_params will be used for
+  # the environment.
+  per_env_config:
+    PongNoFrameskip-v4: null
+  # The default configuration for custom environments in the task list. 
+  # IMPORTANT: Make sure that ALL parameters are added here or in the
+  # per_env_config, that the specific environment needs! 
+  default_wrapper_params:
+    # Zoom factor for the Pong_zoom env. Value > 1 will zoom in and crop
+    # observations; value < 1 will zoom out and add borders.
+    zoom_factor: 0.75
+    # The environment wrapper style for custom envs. 
+    # Either "deepmind", "rllib" or None (=unwrapped Atari env).
+    env_style: deepmind
+    # Settings for "deepmind" wrapper
+    image_dim: 84               #image size of the observation space
+    dm_enable_frameSkip: True   #enable frame skipping for deempind wrapper
+    dm_enable_episodicLife: True #enable the episodic life wrapper
+    # Settings for "rllib" wrapper
+    enable_noopInit: False      #enable random noop env init
+    noop_start_max: 30          #max this number of steps is no action taken
+    enable_frameSkip: False     #enable frame skipping
+    skip_frames: 4              #actions will be repeated skip_frames times
+
+# === RLlib specific parameters from Ray ===
+Trainer_params:
+  # === Environment Settings ===
+  # Discount factor of the MDP.
+  gamma: 0.99
+  # = INFO: this settings are only used, iff continual learning is disabled!
+  # Environment name can also be passed via config.
+  env: null
+  # Arguments to pass to the env creator.
+  env_config: {}
+  # Number of steps after which the episode is forced to terminate. Defaults
+  # to `env.spec.max_episode_steps` (if present) for Gym envs.
+  #horizon: None
+  # Calculate rewards but don't reset the environment when the horizon is
+  # hit. This allows value estimation and RNN state to span across logical
+  # episodes denoted by horizon. This only has an effect if horizon != inf.
+  #soft_horizon: False
+  # Don't set 'done' at the end of the episode. Note that you still need to
+  # set this if soft_horizon=True, unless your env is actually running
+  # forever without returning done=True.
+  no_done_at_end: False
+  # Unsquash actions to the upper and lower bounds of env's action space
+  normalize_actions: False
+  # Whether to clip rewards prior to experience postprocessing. Setting to
+  # None means clip for Atari only.
+  clip_rewards: True
+  # Whether to np.clip() actions to the action space low/high range spec.
+  clip_actions: True
+  # Whether to use rllib or deepmind preprocessors by default. Note that
+  # this only takes affect if no continual learning is done.
+  preprocessor_pref: deepmind
+
+  # === Settings for Rollout Worker processes ===
+  # Number of rollout worker actors to create for parallel sampling. Setting
+  # this to 0 will force rollouts to be done in the trainer actor.
+  num_workers: 7
+  # Number of environments to evaluate vectorwise per worker. This enables
+  # model inference batching, which can improve performance for inference
+  # bottlenecked workloads.
+  num_envs_per_worker: 5
+  # Number of GPUs to allocate to the trainer process. Note that not all
+  # algorithms can take advantage of trainer GPUs. This can be fractional
+  # (e.g., 0.3 GPUs).
+  num_gpus: 1
+  # Divide episodes into fragments of this many steps each during rollouts.
+  # Sample batches of this size are collected from rollout workers and
+  # combined into a larger batch of `train_batch_size` for learning.
+  #
+  # For example, given rollout_fragment_length=100 and train_batch_size=1000:
+  #   1. RLlib collects 10 fragments of 100 steps each from rollout workers.
+  #   2. These fragments are concatenated and we perform an epoch of SGD.
+  #
+  # When using multiple envs per worker, the fragment size is multiplied by
+  # `num_envs_per_worker`. This is since we are collecting steps from
+  # multiple envs in parallel. For example, if num_envs_per_worker=5, then
+  # rollout workers will return experiences in chunks of 5*100 = 500 steps.
+  #
+  # The dataflow here can vary per algorithm. For example, PPO further
+  # divides the train batch into minibatches for multi-epoch SGD.
+  rollout_fragment_length: 100
+  # Whether to rollout "complete_episodes" or "truncate_episodes" to
+  # `rollout_fragment_length` length unrolls. Episode truncation guarantees
+  # evenly sized batches, but increases variance as the reward-to-go will
+  # need to be estimated at truncation boundaries.
+  batch_mode: truncate_episodes
+
+  # === Settings for the Trainer process ===
+  # Training batch size, if applicable. Should be >= rollout_fragment_length.
+  # Samples batches will be concatenated together to a batch of this size,
+  # which is then passed to SGD.
+  train_batch_size: 5000
+  # Total SGD batch size across all devices for SGD. This defines the
+  # minibatch size within each epoch.
+  sgd_minibatch_size: 500
+  # Whether to shuffle sequences in the batch when training (recommended).
+  shuffle_sequences: True
+  # Number of SGD iterations in each outer loop (i.e., number of epochs to
+  # execute per train batch).
+  num_sgd_iter: 15
+  # Stepsize of SGD.
+  lr: 0.00005 
+  # Learning rate schedule.
+  lr_schedule: null
+  # Arguments to pass to the policy model. See models/catalog.py for a full
+  # list of the available model options.
+  # model: MODEL_DEFAULTS
+  # Arguments to pass to the policy optimizer. These vary by optimizer.
+  # optimizer: {}
+
+  # === Debug Settings ===
+  # Whether to write episode stats, etc to the agent log dir.
+  monitor: True
+  # Set the ray.rllib.* log level for the agent process and its workers.
+  # Should be one of DEBUG, INFO, WARN, or ERROR. The DEBUG level will also
+  # periodically print out summaries of relevant internal dataflow (this is
+  # also printed out once at startup at the INFO level). When using the
+  # `rllib train` command, you can also use the `-v` and `-vv` flags as
+  # shorthand for INFO and DEBUG.
+  log_level: INFO
+  # Log system resource metrics to results. This requires `psutil` to be
+  # installed for sys stats, and `gputil` for GPU metrics.
+  log_sys_usage: true
+  # Whether to fake GPUs (using CPUs).
+  # Set this to True for debugging on non-GPU machines (set `num_gpus` > 0).
+  _fake_gpus: False
+
+  # === Evaluation Settings ===
+  # Evaluate with every `evaluation_interval` training iterations.
+  # The evaluation stats will be reported under the "evaluation" metric key.
+  # Note that evaluation is currently not parallelized, and that for Ape-X
+  # metrics are already only reported for the lowest epsilon workers.
+  evaluation_interval: 10
+  # Number of episodes to run per evaluation period. If using multiple
+  # evaluation workers, we will run at least this many episodes total.
+  evaluation_num_episodes: 10
+
+  # === Advanced Rollout Settings ===
+  # Element-wise observation filter, either "NoFilter" or "MeanStdFilter".
+  observation_filter: NoFilter
+  # This argument, in conjunction with worker_index, sets the random seed of
+  # each worker, so that identically configured trials will have identical
+  # results. This makes experiments reproducible.
+  seed: 987321
+
+  # === PPO Parameters ===
+  #(May be partially ignored when using custom algorithms)
+  # These default parameters are from a tuned Ray PPO experiment for Atari
+
+  # Should use a critic as a baseline (otherwise don't use value baseline;
+  # required for using GAE).
+  use_critic: True
+  # If true, use the Generalized Advantage Estimator (GAE)
+  # with a value function, see https://arxiv.org/pdf/1506.02438.pdf.
+  use_gae: True
+  # The GAE(lambda) parameter.
+  lambda: 0.95
+  # Initial coefficient for KL divergence.
+  kl_coeff: 0.5
+  # Share layers for value function. If you set this to True, it's important
+  # to tune vf_loss_coeff.
+  vf_share_layers: True
+  # Coefficient of the value function loss. 
+  # IMPORTANT: you must tune this if you set vf_share_layers: True.
+  vf_loss_coeff: 1.0
+  # Coefficient of the entropy regularizer.
+  entropy_coeff: 0.01
+  # Decay schedule for the entropy regularizer.
+  entropy_coeff_schedule: null
+  # PPO clip parameter.
+  clip_param: 0.1
+  # Clip param for the value function. Note that this is sensitive to the
+  # scale of the rewards. If your expected V is large, increase this.
+  vf_clip_param: 10.0
+  # If specified, clip the global norm of gradients by this amount.
+  grad_clip: null
+  # Target value for KL divergence.
+  kl_target: 0.01
+  # If True, uses the sync samples optimizer instead of the multi-gpu one. 
+  # This is usually slower, but you might want to try it if you run into 
+  # issues with the default optimizer.
+  # If False, uses the Multi-GPU optimizer. This distributes computations over
+  # config["num_gpus"] GPUs.
+  simple_optimizer: False
+  # Framework to use. One of 'tf','tfe','torch'
+  framework: torch

@@ -1,0 +1,21 @@
+# The experiment dir from which the model stems from. From this dir
+# it is tried to load the experiment config to get the info how the
+# training env and model was configured. Can be given here or on the
+# CLI. 
+experiment_dir: null
+# Path to the experiment config the evaluated agent was trained with.
+# If not given, it it tried to load such a config from the 
+# `experiment_dir`. Can be given here or on the CLI. 
+exp_config: null
+# The checkpoint to init the PNN with.
+# Can be given here or on the CLI. 
+checkpoint: null
+# The path to the environment specification file. This is needed to
+# be able to reconstruct the input/output heads of the model.
+# If not given
+# Can be given here or on the CLI. 
+env_spec: null
+# The final size of the sate buffer that will be generated. This 
+# corresponds to the number of episodes the agent will be run.
+state_buffer_size: 1000
+
